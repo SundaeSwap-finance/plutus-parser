@@ -148,7 +148,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             .iter()
                             .map(|n| {
                                 quote! {
-                                    self.#n.to_plutus(),
+                                    #n.to_plutus(),
                                 }
                             })
                             .collect();

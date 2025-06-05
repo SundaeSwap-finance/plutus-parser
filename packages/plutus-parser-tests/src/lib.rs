@@ -21,3 +21,8 @@ pub struct Interval {
 
 #[derive(AsPlutus, Debug, PartialEq, Eq)]
 struct Tuple(BoundedBytes, u64);
+
+#[derive(AsPlutus)]
+pub enum MultisigScript {
+    Signature { key_hash: Vec<u8> },
+}
