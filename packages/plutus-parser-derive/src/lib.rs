@@ -8,7 +8,7 @@ use syn::{
     parse_macro_input, spanned::Spanned,
 };
 
-#[proc_macro_derive(AsPlutus)]
+#[proc_macro_derive(AsPlutus, attributes(variant))]
 pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
     let input: DeriveInput = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;

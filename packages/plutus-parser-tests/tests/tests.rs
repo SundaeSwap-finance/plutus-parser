@@ -186,3 +186,31 @@ fn should_support_maps() {
 
     assert_encoded(data, plutus);
 }
+
+#[test]
+fn should_support_custom_variants_for_structs() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    #[variant = 2]
+    pub struct Special {
+        is_special: bool,
+    }
+
+    let data = Special { is_special: true };
+    let plutus = create_constr(2, vec![create_constr(1, vec![])]);
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_custom_variants_for_enums() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    pub enum Destination {
+        #[variant = 1]
+        Self_,
+    }
+
+    let data = Destination::Self_;
+    let plutus = create_constr(1, vec![]);
+
+    assert_encoded(data, plutus);
+}

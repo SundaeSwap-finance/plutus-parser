@@ -26,3 +26,9 @@ struct Tuple(BoundedBytes, u64);
 pub enum MultisigScript {
     Signature { key_hash: Vec<u8> },
 }
+
+#[derive(AsPlutus)]
+pub enum Destination {
+    #[variant = 1]
+    Self_,
+}
