@@ -120,11 +120,12 @@ impl_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
 impl AsPlutus for String {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let bytes = BoundedBytes::from_plutus(data)?;
-        Ok(bytes.into())
+        String::from_utf8(bytes.to_vec())
+            .map_err(|err| DecodeError::Custom(format!("error decoding string: {err}")))
     }
 
     fn to_plutus(self) -> PlutusData {
-        let bytes = BoundedBytes::try_from(self).unwrap();
+        let bytes = BoundedBytes::from(self.into_bytes());
         bytes.to_plutus()
     }
 }

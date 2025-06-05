@@ -133,7 +133,7 @@ fn should_support_arrays() {
     let plutus = create_constr(
         0,
         vec![PlutusData::Array(MaybeIndefArray::Def(vec![
-            PlutusData::BoundedBytes(BoundedBytes::from(vec![0xca, 0xfe])),
+            PlutusData::BoundedBytes(BoundedBytes::from("cafe".bytes().collect::<Vec<_>>())),
         ]))],
     );
 
