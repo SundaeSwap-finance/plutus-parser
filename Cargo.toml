@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+    "packages/plutus-parser",
+    "packages/plutus-parser-derive",
+    "packages/plutus-parser-tests"
+]

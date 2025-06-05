@@ -1,0 +1,24 @@
+[package]
+name = "plutus-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hex = "0.4"
+pallas-v0 = { package = "pallas-primitives", version = "0.32", optional = true }
+pallas-v1 = { package = "pallas-primitives", version = "1.0.0-alpha.2", optional = true }
+plutus-parser-derive = { path = "../plutus-parser-derive", optional = true }
+thiserror = "2"
+
+[dev-dependencies]
+plutus-parser-derive = { path = "../plutus-parser-derive" }
+
+[features]
+default = ["pallas-v0"]
+derive = ["dep:plutus-parser-derive"]
+pallas-v0 = ["dep:pallas-v0"]
+pallas-v1 = ["dep:pallas-v1"]
+
+[[example]]
+name = "example"
+required-features = ["derive"]

@@ -1,0 +1,7 @@
+[package]
+name = "plutus-parser-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+plutus-parser = { path = "../plutus-parser", features = ["derive"] }
