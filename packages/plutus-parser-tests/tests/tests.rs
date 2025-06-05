@@ -139,3 +139,27 @@ fn should_support_arrays() {
 
     assert_encoded(data, plutus);
 }
+
+#[test]
+fn should_support_vec_u8_as_bytes() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct HasBytes {
+        byte_vec: Vec<u8>,
+        byte_struct: BoundedBytes,
+    }
+
+    let data = HasBytes {
+        byte_vec: vec![0x69],
+        byte_struct: BoundedBytes::from(vec![0x69]),
+    };
+
+    let plutus = create_constr(
+        0,
+        vec![
+            PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69])),
+            PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69])),
+        ],
+    );
+
+    assert_encoded(data, plutus);
+}

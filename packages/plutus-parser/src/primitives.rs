@@ -1,6 +1,6 @@
 use crate::{
     AsPlutus, BigInt, BoundedBytes, DecodeError, PlutusData, create_array, create_constr,
-    parse_array, parse_constr, parse_tuple, parse_variant, type_name,
+    parse_constr, parse_tuple, parse_variant, type_name,
 };
 
 impl AsPlutus for BigInt {
@@ -58,35 +58,60 @@ impl AsPlutus for bool {
 }
 
 macro_rules! impl_number {
-    ($ty:ty) => {
-        impl AsPlutus for $ty {
-            fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-                let PlutusData::BigInt(BigInt::Int(value)) = data else {
-                    return Err(DecodeError::UnexpectedType {
-                        expected: "BigInt".into(),
-                        actual: type_name(&data),
-                    });
-                };
-                let value: i128 = value.into();
-                Ok(value as _)
-            }
+    () => {
+        fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+            let PlutusData::BigInt(BigInt::Int(value)) = data else {
+                return Err(DecodeError::UnexpectedType {
+                    expected: "BigInt".into(),
+                    actual: type_name(&data),
+                });
+            };
+            let value: i128 = value.into();
+            Ok(value as _)
+        }
 
-            fn to_plutus(self) -> PlutusData {
-                let val = self as i128;
-                PlutusData::BigInt(BigInt::Int(val.try_into().unwrap()))
-            }
+        fn to_plutus(self) -> PlutusData {
+            let val = self as i128;
+            PlutusData::BigInt(BigInt::Int(val.try_into().unwrap()))
         }
     };
 }
 
-impl_number!(u8);
-impl_number!(u16);
-impl_number!(u32);
-impl_number!(u64);
-impl_number!(i8);
-impl_number!(i16);
-impl_number!(i32);
-impl_number!(i64);
+impl AsPlutus for u8 {
+    impl_number!();
+
+    // Vec<u8> should be BoundedBytes
+    fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
+        let bytes = BoundedBytes::from_plutus(data)?;
+        Ok(bytes.to_vec())
+    }
+
+    fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
+        let bytes = BoundedBytes::from(value);
+        PlutusData::BoundedBytes(bytes)
+    }
+}
+impl AsPlutus for u16 {
+    impl_number!();
+}
+impl AsPlutus for u32 {
+    impl_number!();
+}
+impl AsPlutus for u64 {
+    impl_number!();
+}
+impl AsPlutus for i8 {
+    impl_number!();
+}
+impl AsPlutus for i16 {
+    impl_number!();
+}
+impl AsPlutus for i32 {
+    impl_number!();
+}
+impl AsPlutus for i64 {
+    impl_number!();
+}
 
 macro_rules! impl_tuple {
     ($($param:ident),*) => {
@@ -154,11 +179,10 @@ impl<T: AsPlutus> AsPlutus for Option<T> {
 
 impl<T: AsPlutus> AsPlutus for Vec<T> {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let items = parse_array(data)?;
-        items.into_iter().map(T::from_plutus).collect()
+        T::vec_from_plutus(data)
     }
 
     fn to_plutus(self) -> PlutusData {
-        create_array(self.into_iter().map(T::to_plutus).collect())
+        T::vec_to_plutus(self)
     }
 }

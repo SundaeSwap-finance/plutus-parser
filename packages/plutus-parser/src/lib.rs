@@ -4,10 +4,10 @@ mod primitives;
 pub use plutus_parser_derive::*;
 
 #[cfg(feature = "pallas-v0")]
-pub use pallas_v0::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
+pub use pallas_v0::{BigInt, BoundedBytes, Constr, Int, MaybeIndefArray, PlutusData};
 
 #[cfg(feature = "pallas-v1")]
-pub use pallas_v1::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
+pub use pallas_v1::{BigInt, BoundedBytes, Constr, Int, MaybeIndefArray, PlutusData};
 
 use thiserror::Error;
 
@@ -32,6 +32,15 @@ pub enum DecodeError {
 pub trait AsPlutus: Sized {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError>;
     fn to_plutus(self) -> PlutusData;
+
+    fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
+        let items = parse_array(data)?;
+        items.into_iter().map(Self::from_plutus).collect()
+    }
+
+    fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
+        create_array(value.into_iter().map(Self::to_plutus).collect())
+    }
 }
 
 pub fn parse_array(data: PlutusData) -> Result<Vec<PlutusData>, DecodeError> {
