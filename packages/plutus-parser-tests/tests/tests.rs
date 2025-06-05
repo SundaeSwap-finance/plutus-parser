@@ -1,4 +1,6 @@
-use plutus_parser::{AsPlutus, BigInt, BoundedBytes, MaybeIndefArray, PlutusData, create_constr};
+use plutus_parser::{
+    AsPlutus, BigInt, BoundedBytes, MaybeIndefArray, PlutusData, create_array, create_constr,
+};
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
 
 fn assert_encoded<T: AsPlutus + std::fmt::Debug + Eq>(data: T, plutus: PlutusData) {
@@ -94,10 +96,25 @@ fn should_support_tuple_structs() {
 
     let data = Tuple(BoundedBytes::from(vec![0x13, 0x37]), 9001);
 
-    let plutus = PlutusData::Array(MaybeIndefArray::Def(vec![
+    let plutus = create_constr(
+        0,
+        vec![
+            PlutusData::BoundedBytes(BoundedBytes::from(vec![0x13, 0x37])),
+            PlutusData::BigInt(BigInt::Int(9001.into())),
+        ],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_tuples() {
+    let data = (BoundedBytes::from(vec![0x13, 0x37]), 9001);
+
+    let plutus = create_array(vec![
         PlutusData::BoundedBytes(BoundedBytes::from(vec![0x13, 0x37])),
         PlutusData::BigInt(BigInt::Int(9001.into())),
-    ]));
+    ]);
 
     assert_encoded(data, plutus);
 }

@@ -1,6 +1,6 @@
 use crate::{
     AsPlutus, BigInt, BoundedBytes, DecodeError, PlutusData, create_array, create_constr,
-    parse_array, parse_constr, parse_variant, type_name,
+    parse_array, parse_constr, parse_tuple, parse_variant, type_name,
 };
 
 impl AsPlutus for BigInt {
@@ -87,6 +87,35 @@ impl_number!(i8);
 impl_number!(i16);
 impl_number!(i32);
 impl_number!(i64);
+
+macro_rules! impl_tuple {
+    ($($param:ident),*) => {
+        impl<$($param),*> AsPlutus for ($($param),*)
+        where
+            $($param: AsPlutus),*
+        {
+            #[allow(non_snake_case)]
+            fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+                let [$($param),*] = parse_tuple(data)?;
+                Ok(($(AsPlutus::from_plutus($param)?),*))
+            }
+
+            #[allow(non_snake_case)]
+            fn to_plutus(self) -> PlutusData {
+                let ($($param),*) = self;
+                create_array(vec![$($param.to_plutus()),*])
+            }
+        }
+    };
+}
+
+impl_tuple!(T1, T2);
+impl_tuple!(T1, T2, T3);
+impl_tuple!(T1, T2, T3, T4);
+impl_tuple!(T1, T2, T3, T4, T5);
+impl_tuple!(T1, T2, T3, T4, T5, T6);
+impl_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
 
 impl AsPlutus for String {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {

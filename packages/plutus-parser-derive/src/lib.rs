@@ -96,12 +96,16 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                         })
                         .collect();
                     from_plutus = quote! {
-                        let [#(#names),*] = plutus_parser::parse_tuple(data)?;
-                        return Ok(Self(#(#assignments)*));
+                        let (variant, fields) = plutus_parser::parse_constr(data)?;
+                        if variant == #n {
+                            let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
+                            return Ok(Self(#(#assignments)*));
+                        }
+                        Err(plutus_parser::DecodeError::UnexpectedVariant { variant })
                     };
                     to_plutus = quote! {
                         let Self(#(#names),*) = self;
-                        plutus_parser::create_array(vec![
+                        plutus_parser::create_constr(#n, vec![
                             #(#casts)*
                         ])
                     }
