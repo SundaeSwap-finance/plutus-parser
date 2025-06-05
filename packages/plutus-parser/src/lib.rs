@@ -4,10 +4,14 @@ mod primitives;
 pub use plutus_parser_derive::*;
 
 #[cfg(feature = "pallas-v0")]
-pub use pallas_v0::{BigInt, BoundedBytes, Constr, Int, MaybeIndefArray, PlutusData};
+pub use pallas_v0::{
+    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+};
 
 #[cfg(feature = "pallas-v1")]
-pub use pallas_v1::{BigInt, BoundedBytes, Constr, Int, MaybeIndefArray, PlutusData};
+pub use pallas_v1::{
+    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+};
 
 use thiserror::Error;
 
@@ -95,6 +99,19 @@ pub fn parse_variant<const N: usize>(
         })
 }
 
+pub fn parse_map(data: PlutusData) -> Result<Vec<(PlutusData, PlutusData)>, DecodeError> {
+    let kvps = match data {
+        PlutusData::Map(kvps) => kvps,
+        other => {
+            return Err(DecodeError::UnexpectedType {
+                expected: "Map".to_string(),
+                actual: type_name(&other),
+            });
+        }
+    };
+    Ok(kvps.to_vec())
+}
+
 pub fn create_constr(variant: u64, fields: Vec<PlutusData>) -> PlutusData {
     let (tag, any_constructor) = match variant {
         0..=6 => (variant + 121, None),
@@ -110,6 +127,10 @@ pub fn create_constr(variant: u64, fields: Vec<PlutusData>) -> PlutusData {
 
 pub fn create_array(fields: Vec<PlutusData>) -> PlutusData {
     PlutusData::Array(MaybeIndefArray::Def(fields))
+}
+
+pub fn create_map(kvps: Vec<(PlutusData, PlutusData)>) -> PlutusData {
+    PlutusData::Map(KeyValuePairs::Def(kvps))
 }
 
 pub(crate) fn type_name(data: &PlutusData) -> String {

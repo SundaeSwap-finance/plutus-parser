@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+indexmap = "2"
 pallas-v0 = { package = "pallas-primitives", version = "0.32", optional = true }
 pallas-v1 = { package = "pallas-primitives", version = "1.0.0-alpha.2", optional = true }
 plutus-parser-derive = { path = "../plutus-parser-derive", optional = true }

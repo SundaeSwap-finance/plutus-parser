@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use plutus_parser::{
     AsPlutus, BigInt, BoundedBytes, MaybeIndefArray, PlutusData, create_array, create_constr,
+    create_map,
 };
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
 
@@ -160,6 +163,26 @@ fn should_support_vec_u8_as_bytes() {
             PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69])),
         ],
     );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_maps() {
+    let mut data = BTreeMap::new();
+    data.insert("bar".to_string(), 9001u64);
+    data.insert("foo".to_string(), 1337u64);
+
+    let plutus = create_map(vec![
+        (
+            PlutusData::BoundedBytes(BoundedBytes::from("bar".as_bytes().to_vec())),
+            PlutusData::BigInt(BigInt::Int(9001.into())),
+        ),
+        (
+            PlutusData::BoundedBytes(BoundedBytes::from("foo".as_bytes().to_vec())),
+            PlutusData::BigInt(BigInt::Int(1337.into())),
+        ),
+    ]);
 
     assert_encoded(data, plutus);
 }

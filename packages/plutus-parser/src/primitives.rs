@@ -1,6 +1,13 @@
+use std::{
+    collections::{BTreeMap, HashMap},
+    hash::Hash,
+};
+
+use indexmap::IndexMap;
+
 use crate::{
     AsPlutus, BigInt, BoundedBytes, DecodeError, PlutusData, create_array, create_constr,
-    parse_constr, parse_tuple, parse_variant, type_name,
+    create_map, parse_constr, parse_map, parse_tuple, parse_variant, type_name,
 };
 
 impl AsPlutus for BigInt {
@@ -185,4 +192,36 @@ impl<T: AsPlutus> AsPlutus for Vec<T> {
     fn to_plutus(self) -> PlutusData {
         T::vec_to_plutus(self)
     }
+}
+
+macro_rules! impl_map {
+    () => {
+        fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+            let mut map = Self::new();
+            for (key, value) in parse_map(data)? {
+                map.insert(TKey::from_plutus(key)?, TVal::from_plutus(value)?);
+            }
+            Ok(map)
+        }
+
+        fn to_plutus(self) -> PlutusData {
+            let kvps = self
+                .into_iter()
+                .map(|(k, v)| (k.to_plutus(), v.to_plutus()))
+                .collect();
+            create_map(kvps)
+        }
+    };
+}
+
+impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for IndexMap<TKey, TVal> {
+    impl_map!();
+}
+
+impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for HashMap<TKey, TVal> {
+    impl_map!();
+}
+
+impl<TKey: AsPlutus + PartialOrd + Ord, TVal: AsPlutus> AsPlutus for BTreeMap<TKey, TVal> {
+    impl_map!();
 }

@@ -1,6 +1,6 @@
 # plutus-parser
 
-A simple create to derive `from_plutus` and `to_plutus` on Rust types.
+A simple crate to derive `from_plutus` and `to_plutus` on Rust types.
 
 This crate matches Aiken semantics as closely as possible.
 
