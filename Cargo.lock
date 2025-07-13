@@ -236,6 +236,8 @@ dependencies = [
 name = "plutus-parser-tests"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "minicbor 0.25.1",
  "plutus-parser",
 ]
 

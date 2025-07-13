@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 plutus-parser = { path = "../plutus-parser", features = ["derive"] }
+hex = "0.4.3"
+minicbor = "0.25.1"
