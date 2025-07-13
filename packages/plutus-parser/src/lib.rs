@@ -121,12 +121,12 @@ pub fn create_constr(variant: u64, fields: Vec<PlutusData>) -> PlutusData {
     PlutusData::Constr(Constr {
         tag,
         any_constructor,
-        fields: MaybeIndefArray::Def(fields),
+        fields: if fields.len() > 0 { MaybeIndefArray::Indef(fields) } else { MaybeIndefArray::Def(Vec::new()) },
     })
 }
 
 pub fn create_array(fields: Vec<PlutusData>) -> PlutusData {
-    PlutusData::Array(MaybeIndefArray::Def(fields))
+    PlutusData::Array(if fields.len() > 0 { MaybeIndefArray::Indef(fields) } else { MaybeIndefArray::Def(Vec::new()) })
 }
 
 pub fn create_map(kvps: Vec<(PlutusData, PlutusData)>) -> PlutusData {

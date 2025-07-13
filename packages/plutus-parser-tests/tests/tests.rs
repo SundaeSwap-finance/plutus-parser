@@ -135,7 +135,7 @@ fn should_support_arrays() {
 
     let plutus = create_constr(
         0,
-        vec![PlutusData::Array(MaybeIndefArray::Def(vec![
+        vec![PlutusData::Array(MaybeIndefArray::Indef(vec![
             PlutusData::BoundedBytes(BoundedBytes::from("cafe".bytes().collect::<Vec<_>>())),
         ]))],
     );
@@ -213,4 +213,32 @@ fn should_support_custom_variants_for_enums() {
     let plutus = create_constr(1, vec![]);
 
     assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_match_plutus_conventions() {
+    #[derive(AsPlutus, Clone)]
+    pub enum Optional {
+        Some(u32),
+        None
+    }
+
+    #[derive(AsPlutus, Clone)]
+    pub struct Fields {
+        pub a: u32,
+        pub b: u32,
+        pub c: Optional,
+        pub d: Optional,
+    }
+    let data = Fields {
+        a: 1,
+        b: 2,
+        c: Optional::Some(3),
+        d: Optional::None,
+    };
+    let expected_bytes = hex::decode("d8799f0102d8799f03ffd87a80ff").unwrap();
+    let mut enc_bytes = vec![];
+    minicbor::encode(data.to_plutus(), &mut enc_bytes).expect("infallible");
+
+    assert_eq!(enc_bytes, expected_bytes);
 }
