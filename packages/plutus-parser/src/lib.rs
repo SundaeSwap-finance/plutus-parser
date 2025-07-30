@@ -3,8 +3,13 @@ mod primitives;
 #[cfg(feature = "derive")]
 pub use plutus_parser_derive::*;
 
-#[cfg(feature = "pallas-v0")]
-pub use pallas_v0::{
+#[cfg(feature = "pallas-v0_32")]
+pub use pallas_v0_32::{
+    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+};
+
+#[cfg(feature = "pallas-v0_33")]
+pub use pallas_v0_33::{
     BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
@@ -121,12 +126,20 @@ pub fn create_constr(variant: u64, fields: Vec<PlutusData>) -> PlutusData {
     PlutusData::Constr(Constr {
         tag,
         any_constructor,
-        fields: if fields.len() > 0 { MaybeIndefArray::Indef(fields) } else { MaybeIndefArray::Def(Vec::new()) },
+        fields: if !fields.is_empty() {
+            MaybeIndefArray::Indef(fields)
+        } else {
+            MaybeIndefArray::Def(Vec::new())
+        },
     })
 }
 
 pub fn create_array(fields: Vec<PlutusData>) -> PlutusData {
-    PlutusData::Array(if fields.len() > 0 { MaybeIndefArray::Indef(fields) } else { MaybeIndefArray::Def(Vec::new()) })
+    PlutusData::Array(if !fields.is_empty() {
+        MaybeIndefArray::Indef(fields)
+    } else {
+        MaybeIndefArray::Def(Vec::new())
+    })
 }
 
 pub fn create_map(kvps: Vec<(PlutusData, PlutusData)>) -> PlutusData {
