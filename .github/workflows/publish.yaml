@@ -13,10 +13,12 @@ jobs:
     strategy:
       matrix:
         package-name: [plutus-parser-derive, plutus-parser]
+      fail-fast: true
+      max-parallel: 1
     steps:
       - uses: actions/checkout@v4
       - uses: swatinem/rust-cache@v2
-      - name: Publish to crates.io
+      - name: Publish ${{ matrix.package-name }} to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
