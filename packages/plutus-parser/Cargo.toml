@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 indexmap = "2"
-pallas-v0 = { package = "pallas-primitives", version = "0.32", optional = true }
+pallas-v0_32 = { package = "pallas-primitives", version = "0.32", optional = true }
+pallas-v0_33 = { package = "pallas-primitives", version = "0.33", optional = true }
 pallas-v1 = { package = "pallas-primitives", version = "1.0.0-alpha.2", optional = true }
 plutus-parser-derive = { path = "../plutus-parser-derive", optional = true }
 thiserror = "2"
@@ -14,9 +15,10 @@ thiserror = "2"
 plutus-parser-derive = { path = "../plutus-parser-derive" }
 
 [features]
-default = ["pallas-v0"]
+default = ["pallas-v0_32"]
 derive = ["dep:plutus-parser-derive"]
-pallas-v0 = ["dep:pallas-v0"]
+pallas-v0_32 = ["dep:pallas-v0_32"]
+pallas-v0_33 = ["dep:pallas-v0_33"]
 pallas-v1 = ["dep:pallas-v1"]
 
 [[example]]

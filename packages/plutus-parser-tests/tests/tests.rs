@@ -220,7 +220,7 @@ fn should_match_plutus_conventions() {
     #[derive(AsPlutus, Clone)]
     pub enum Optional {
         Some(u32),
-        None
+        None,
     }
 
     #[derive(AsPlutus, Clone)]
