@@ -1,4 +1,4 @@
-use plutus_parser::{AsPlutus, BoundedBytes};
+use plutus_parser::AsPlutus;
 
 #[derive(AsPlutus, Debug, PartialEq, Eq)]
 pub enum IntervalBoundType {
@@ -18,9 +18,6 @@ pub struct Interval {
     pub lower_bound: IntervalBound,
     pub upper_bound: IntervalBound,
 }
-
-#[derive(AsPlutus, Debug, PartialEq, Eq)]
-struct Tuple(BoundedBytes, u64);
 
 #[derive(AsPlutus)]
 pub enum MultisigScript {
