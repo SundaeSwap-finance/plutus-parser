@@ -242,3 +242,17 @@ fn should_match_plutus_conventions() {
 
     assert_eq!(enc_bytes, expected_bytes);
 }
+
+#[test]
+fn should_support_multiple_enum_fields() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    pub enum Gollum {
+        Smeagol(bool, bool),
+        Gandalf,
+    }
+
+    let data = Gollum::Smeagol(false, true);
+    let plutus = create_constr(0, vec![create_constr(0, vec![]), create_constr(1, vec![])]);
+
+    assert_encoded(data, plutus);
+}

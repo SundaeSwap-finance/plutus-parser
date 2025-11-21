@@ -205,10 +205,10 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                         (
                             quote! {
                                 let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
-                                return Ok(Self::#name(#(#assignments),*));
+                                return Ok(Self::#name(#(#assignments)*));
                             },
                             quote! {
-                                Self::#name(#(#names)*) => plutus_parser::create_constr(#n, vec![
+                                Self::#name(#(#names),*) => plutus_parser::create_constr(#n, vec![
                                     #(#casts)*
                                 ]),
                             },
