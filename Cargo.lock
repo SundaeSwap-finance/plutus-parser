@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "plutus-parser"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "indexmap",
  "pallas-primitives 0.32.1",
@@ -269,7 +269,7 @@ dependencies = [
 
 [[package]]
 name = "plutus-parser-derive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
