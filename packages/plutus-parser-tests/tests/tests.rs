@@ -274,3 +274,23 @@ fn should_encode_and_decode_bytes() {
     let data2 = Basic::from_plutus_bytes(&bytes).unwrap();
     assert_eq!(data, data2);
 }
+
+#[test]
+fn should_support_plutus_data_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: PlutusData,
+    }
+
+    let data = Basic {
+        data: PlutusData::BoundedBytes(vec![0xca, 0xfe, 0xba, 0xbe].into()),
+    };
+    let plutus = create_constr(
+        0,
+        vec![PlutusData::BoundedBytes(
+            vec![0xca, 0xfe, 0xba, 0xbe].into(),
+        )],
+    );
+
+    assert_encoded(data, plutus);
+}
