@@ -8,6 +8,8 @@ repository = "https://github.com/SundaeSwap-finance/plutus-parser/"
 
 [dependencies]
 indexmap = "2"
+minicbor-v0_25 = { package = "minicbor", version = "0.25", optional = true }
+minicbor-v0_26 = { package = "minicbor", version = "0.26", optional = true }
 pallas-v0_32 = { package = "pallas-primitives", version = "0.32", optional = true }
 pallas-v0_33 = { package = "pallas-primitives", version = "0.33", optional = true }
 pallas-v1 = { package = "pallas-primitives", version = "1.0.0-alpha.3", optional = true }
@@ -15,14 +17,15 @@ plutus-parser-derive = { path = "../plutus-parser-derive", version = "0.2.0", op
 thiserror = "2"
 
 [dev-dependencies]
+hex = "0.4"
 plutus-parser-derive = { path = "../plutus-parser-derive" }
 
 [features]
 default = ["pallas-v0_32"]
 derive = ["dep:plutus-parser-derive"]
-pallas-v0_32 = ["dep:pallas-v0_32"]
-pallas-v0_33 = ["dep:pallas-v0_33"]
-pallas-v1 = ["dep:pallas-v1"]
+pallas-v0_32 = ["dep:pallas-v0_32", "dep:minicbor-v0_25"]
+pallas-v0_33 = ["dep:pallas-v0_33", "dep:minicbor-v0_25"]
+pallas-v1 = ["dep:pallas-v1", "dep:minicbor-v0_26"]
 
 [[example]]
 name = "example"

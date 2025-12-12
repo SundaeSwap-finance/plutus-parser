@@ -4,15 +4,21 @@ mod primitives;
 pub use plutus_parser_derive::*;
 
 #[cfg(feature = "pallas-v0_32")]
+pub use minicbor_v0_25 as minicbor;
+#[cfg(feature = "pallas-v0_32")]
 pub use pallas_v0_32::{
     BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
 #[cfg(feature = "pallas-v0_33")]
+pub use minicbor_v0_25 as minicbor;
+#[cfg(feature = "pallas-v0_33")]
 pub use pallas_v0_33::{
     BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
+#[cfg(feature = "pallas-v1")]
+pub use minicbor_v0_26 as minicbor;
 #[cfg(feature = "pallas-v1")]
 pub use pallas_v1::{
     BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
@@ -34,6 +40,8 @@ pub enum DecodeError {
         expected: usize,
         actual: usize,
     },
+    #[error("invalid cbor: {0}")]
+    InvalidCbor(minicbor::decode::Error),
     #[error("{0}")]
     Custom(String),
 }
@@ -41,6 +49,16 @@ pub enum DecodeError {
 pub trait AsPlutus: Sized {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError>;
     fn to_plutus(self) -> PlutusData;
+
+    fn from_plutus_bytes(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let data = minicbor::decode::<PlutusData>(bytes).map_err(DecodeError::InvalidCbor)?;
+        Self::from_plutus(data)
+    }
+
+    fn to_plutus_bytes(self) -> Vec<u8> {
+        let data = self.to_plutus();
+        minicbor::to_vec(data).expect("infallible")
+    }
 
     fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
         let items = parse_array(data)?;
