@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "plutus-parser"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "indexmap",
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "plutus-parser-derive"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
