@@ -256,3 +256,41 @@ fn should_support_multiple_enum_fields() {
 
     assert_encoded(data, plutus);
 }
+
+#[test]
+fn should_encode_and_decode_bytes() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        name: String,
+    }
+
+    let data = Basic {
+        name: "Hello world!".to_string(),
+    };
+
+    let bytes = data.clone().to_plutus_bytes();
+    assert_eq!(hex::encode(&bytes), "d8799f4c48656c6c6f20776f726c6421ff");
+
+    let data2 = Basic::from_plutus_bytes(&bytes).unwrap();
+    assert_eq!(data, data2);
+}
+
+#[test]
+fn should_support_plutus_data_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: PlutusData,
+    }
+
+    let data = Basic {
+        data: PlutusData::BoundedBytes(vec![0xca, 0xfe, 0xba, 0xbe].into()),
+    };
+    let plutus = create_constr(
+        0,
+        vec![PlutusData::BoundedBytes(
+            vec![0xca, 0xfe, 0xba, 0xbe].into(),
+        )],
+    );
+
+    assert_encoded(data, plutus);
+}

@@ -10,6 +10,16 @@ use crate::{
     create_map, parse_constr, parse_map, parse_tuple, parse_variant, type_name,
 };
 
+impl AsPlutus for PlutusData {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        Ok(data)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        self
+    }
+}
+
 impl AsPlutus for BigInt {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let PlutusData::BigInt(int) = data else {
