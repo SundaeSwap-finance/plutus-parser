@@ -21,7 +21,7 @@ hex = "0.4"
 plutus-parser-derive = { path = "../plutus-parser-derive" }
 
 [features]
-default = ["pallas-v0_32"]
+default = ["pallas-v0_33"]
 derive = ["dep:plutus-parser-derive"]
 pallas-v0_32 = ["dep:pallas-v0_32", "dep:minicbor-v0_25"]
 pallas-v0_33 = ["dep:pallas-v0_33", "dep:minicbor-v0_25"]
