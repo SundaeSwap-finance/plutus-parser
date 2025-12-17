@@ -17,6 +17,13 @@ pub use pallas_v0_33::{
     BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
+#[cfg(feature = "pallas-v0_34")]
+pub use minicbor_v0_25 as minicbor;
+#[cfg(feature = "pallas-v0_34")]
+pub use pallas_v0_34::{
+    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+};
+
 #[cfg(feature = "pallas-v1")]
 pub use minicbor_v0_26 as minicbor;
 #[cfg(feature = "pallas-v1")]
