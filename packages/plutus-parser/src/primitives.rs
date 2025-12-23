@@ -23,10 +23,7 @@ impl AsPlutus for PlutusData {
 impl AsPlutus for BigInt {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let PlutusData::BigInt(int) = data else {
-            return Err(DecodeError::UnexpectedType {
-                expected: "BigInt".to_string(),
-                actual: type_name(&data),
-            });
+            return Err(DecodeError::unexpected_type("BigInt", type_name(&data)));
         };
         Ok(int)
     }
@@ -39,10 +36,10 @@ impl AsPlutus for BigInt {
 impl AsPlutus for BoundedBytes {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let PlutusData::BoundedBytes(bytes) = data else {
-            return Err(DecodeError::UnexpectedType {
-                expected: "BoundedBytes".to_string(),
-                actual: type_name(&data),
-            });
+            return Err(DecodeError::unexpected_type(
+                "BoundedBytes",
+                type_name(&data),
+            ));
         };
         Ok(bytes)
     }
@@ -63,7 +60,7 @@ impl AsPlutus for bool {
             let [] = parse_variant(variant, fields)?;
             return Ok(true);
         }
-        Err(DecodeError::UnexpectedVariant { variant })
+        Err(DecodeError::unexpected_variant(variant))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -77,14 +74,23 @@ impl AsPlutus for bool {
 macro_rules! impl_number {
     () => {
         fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-            let PlutusData::BigInt(BigInt::Int(value)) = data else {
-                return Err(DecodeError::UnexpectedType {
-                    expected: "BigInt".into(),
-                    actual: type_name(&data),
-                });
+            let PlutusData::BigInt(value) = data else {
+                return Err(DecodeError::unexpected_type("BigInt", type_name(&data)));
             };
-            let value: i128 = value.into();
-            Ok(value as _)
+            match value {
+                BigInt::Int(value) => {
+                    let value: i128 = value.into();
+                    Self::try_from(value).map_err(|_| DecodeError::out_of_range(value))
+                }
+                BigInt::BigUInt(value) => Err(DecodeError::out_of_range(format!(
+                    "0x{}",
+                    hex::encode(&*value)
+                ))),
+                BigInt::BigNInt(value) => Err(DecodeError::out_of_range(format!(
+                    "-1 - 0x{}",
+                    hex::encode(&*value)
+                ))),
+            }
         }
 
         fn to_plutus(self) -> PlutusData {
@@ -131,7 +137,7 @@ impl AsPlutus for i64 {
 }
 
 macro_rules! impl_tuple {
-    ($($param:ident),*) => {
+    ($($param:ident $index:expr),*) => {
         impl<$($param),*> AsPlutus for ($($param),*)
         where
             $($param: AsPlutus),*
@@ -139,7 +145,7 @@ macro_rules! impl_tuple {
             #[allow(non_snake_case)]
             fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
                 let [$($param),*] = parse_tuple(data)?;
-                Ok(($(AsPlutus::from_plutus($param)?),*))
+                Ok(($(AsPlutus::from_plutus($param).map_err(|e| e.with_field_name($index))?),*))
             }
 
             #[allow(non_snake_case)]
@@ -151,19 +157,19 @@ macro_rules! impl_tuple {
     };
 }
 
-impl_tuple!(T1, T2);
-impl_tuple!(T1, T2, T3);
-impl_tuple!(T1, T2, T3, T4);
-impl_tuple!(T1, T2, T3, T4, T5);
-impl_tuple!(T1, T2, T3, T4, T5, T6);
-impl_tuple!(T1, T2, T3, T4, T5, T6, T7);
-impl_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_tuple!(T1 0, T2 1);
+impl_tuple!(T1 0, T2 1, T3 2);
+impl_tuple!(T1 0, T2 1, T3 2, T4 3);
+impl_tuple!(T1 0, T2 1, T3 2, T4 3, T5 4);
+impl_tuple!(T1 0, T2 1, T3 2, T4 3, T5 4, T6 5);
+impl_tuple!(T1 0, T2 1, T3 2, T4 3, T5 4, T6 5, T7 6);
+impl_tuple!(T1 0, T2 1, T3 2, T4 3, T5 4, T6 5, T7 6, T8 7);
 
 impl AsPlutus for String {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let bytes = BoundedBytes::from_plutus(data)?;
         String::from_utf8(bytes.to_vec())
-            .map_err(|err| DecodeError::Custom(format!("error decoding string: {err}")))
+            .map_err(|err| DecodeError::custom(format!("error decoding string: {err}")))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -183,7 +189,7 @@ impl<T: AsPlutus> AsPlutus for Option<T> {
             let [] = parse_variant(variant, fields)?;
             return Ok(None);
         }
-        Err(DecodeError::UnexpectedVariant { variant })
+        Err(DecodeError::unexpected_variant(variant))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -208,8 +214,12 @@ macro_rules! impl_map {
     () => {
         fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
             let mut map = Self::new();
-            for (key, value) in parse_map(data)? {
-                map.insert(TKey::from_plutus(key)?, TVal::from_plutus(value)?);
+            for (index, (key, value)) in parse_map(data)?.into_iter().enumerate() {
+                let key = TKey::from_plutus(key)
+                    .map_err(|e| e.with_field_name(format!("[(key #{index})]")))?;
+                let value = TVal::from_plutus(value)
+                    .map_err(|e| e.with_field_name(format!("[(value #{index})]")))?;
+                map.insert(key, value);
             }
             Ok(map)
         }

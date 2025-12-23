@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use plutus_parser::{
-    AsPlutus, BigInt, BoundedBytes, MaybeIndefArray, PlutusData, create_array, create_constr,
-    create_map,
+    AsPlutus, BigInt, BoundedBytes, DecodeError, MaybeIndefArray, PlutusData, create_array,
+    create_constr, create_map,
 };
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
 
@@ -293,4 +293,270 @@ fn should_support_plutus_data_fields() {
     );
 
     assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_include_field_names_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Basic {
+        not_an_int: bool,
+    }
+
+    let plutus = create_constr(0, vec![PlutusData::BigInt(BigInt::Int(1.into()))]);
+
+    let error = DecodeError::unexpected_type("Constr", "BigInt").with_field_name("not_an_int");
+
+    assert_eq!(Basic::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_nested_field_names_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Outer {
+        foo: Option<Inner>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Inner {
+        bar: bool,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_constr(
+            0,
+            vec![create_constr(0, vec![create_constr(2, vec![])])],
+        )],
+    );
+
+    let error = DecodeError::unexpected_variant(2).with_field_name("foo.bar");
+
+    assert_eq!(Outer::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_nested_field_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Outer {
+        foo: Option<Inner>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Inner(bool);
+
+    let plutus = create_constr(
+        0,
+        vec![create_constr(
+            0,
+            vec![create_constr(0, vec![create_constr(2, vec![])])],
+        )],
+    );
+
+    let error = DecodeError::unexpected_variant(2).with_field_name("foo.0");
+
+    assert_eq!(Outer::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_array_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Collection {
+        items: Vec<Item>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Item {
+        foo: Option<String>,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x01].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x02].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    1,
+                    vec![PlutusData::BoundedBytes(vec![0x03].into())],
+                )],
+            ),
+        ])],
+    );
+
+    let error = DecodeError::wrong_variant_field_count(1, 0, 1).with_field_name("items[2].foo");
+
+    assert_eq!(Collection::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_tuple_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Collection {
+        items: (Item, Item, Item),
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Item {
+        foo: Option<String>,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x01].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x02].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    1,
+                    vec![PlutusData::BoundedBytes(vec![0x03].into())],
+                )],
+            ),
+        ])],
+    );
+
+    let error = DecodeError::wrong_variant_field_count(1, 0, 1).with_field_name("items.2.foo");
+
+    assert_eq!(Collection::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_map_key_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Lookup {
+        by_name: HashMap<String, u64>,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_map(vec![
+            (
+                PlutusData::BoundedBytes(vec![0x68, 0x65, 0x6c, 0x6c, 0x6f].into()),
+                PlutusData::BigInt(BigInt::Int(69.into())),
+            ),
+            (
+                PlutusData::BoundedBytes(vec![0x00, 0x9f, 0x92, 0x96].into()),
+                PlutusData::BigInt(BigInt::Int(67.into())),
+            ),
+        ])],
+    );
+
+    let error = DecodeError::custom(
+        "error decoding string: invalid utf-8 sequence of 1 bytes from index 1",
+    )
+    .with_field_name("by_name[(key #1)]");
+
+    assert_eq!(Lookup::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_map_value_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Values {
+        by_index: BTreeMap<u64, Value>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Value {
+        id: u8,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_map(vec![
+            (
+                PlutusData::BigInt(BigInt::Int(3.into())),
+                create_constr(0, vec![PlutusData::BigInt(BigInt::Int(4.into()))]),
+            ),
+            (
+                PlutusData::BigInt(BigInt::Int(3.into())),
+                create_constr(0, vec![create_constr(0, vec![])]),
+            ),
+        ])],
+    );
+
+    let error =
+        DecodeError::unexpected_type("BigInt", "Constr").with_field_name("by_index[(value #1)].id");
+
+    assert_eq!(Values::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_enum_variant_field_names_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Outer {
+        inner: Inner,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    enum Inner {
+        First { field: u8 },
+        Second(u16),
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_constr(
+            0,
+            vec![PlutusData::BigInt(BigInt::Int(257.into()))],
+        )],
+    );
+
+    let error = DecodeError::out_of_range(257).with_field_name("inner::First.field");
+
+    assert_eq!(Outer::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_enum_variant_field_indices_in_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Outer {
+        inner: Inner,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    enum Inner {
+        First { field: u8 },
+        Second(u16),
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_constr(
+            1,
+            vec![PlutusData::BigInt(BigInt::BigUInt(
+                vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00].into(),
+            ))],
+        )],
+    );
+
+    let error =
+        DecodeError::out_of_range("0x010000000000000000").with_field_name("inner::Second.0");
+
+    assert_eq!(Outer::from_plutus(plutus), Err(error));
 }
