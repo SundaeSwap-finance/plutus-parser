@@ -27,7 +27,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                         .collect();
                     let assignments = names.iter().map(|n| {
                         quote! {
-                            #n: plutus_parser::AsPlutus::from_plutus(#n)?,
+                            #n: plutus_parser::AsPlutus::from_plutus(#n).map_err(|e| e.with_field_name(stringify!(#n)))?,
                         }
                     });
                     let casts: Vec<_> = names
@@ -47,7 +47,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                                 #(#assignments)*
                             });
                         }
-                        Err(plutus_parser::DecodeError::UnexpectedVariant { variant })
+                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
                     };
                     to_plutus = quote! {
                         plutus_parser::create_constr(#n, vec![
@@ -62,7 +62,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             let [] = plutus_parser::parse_variant(variant, fields)?;
                             return Ok(Self);
                         }
-                        Err(plutus_parser::DecodeError::UnexpectedVariant { variant })
+                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
                     };
                     to_plutus = quote! {
                         plutus_parser::create_constr(#n, vec![])
@@ -81,9 +81,10 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                         .collect();
                     let assignments: Vec<_> = names
                         .iter()
-                        .map(|n| {
+                        .enumerate()
+                        .map(|(i, n)| {
                             quote! {
-                                plutus_parser::AsPlutus::from_plutus(#n)?,
+                                plutus_parser::AsPlutus::from_plutus(#n).map_err(|e| e.with_field_name(#i))?,
                             }
                         })
                         .collect();
@@ -101,7 +102,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
                             return Ok(Self(#(#assignments)*));
                         }
-                        Err(plutus_parser::DecodeError::UnexpectedVariant { variant })
+                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
                     };
                     to_plutus = quote! {
                         let Self(#(#names),*) = self;
@@ -140,8 +141,9 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             .map(|n| n.ident.as_ref().unwrap())
                             .collect();
                         let assignments = names.iter().map(|n| {
+                            let field_name = format!("::{name}.{n}");
                             quote! {
-                                #n: plutus_parser::AsPlutus::from_plutus(#n)?,
+                                #n: plutus_parser::AsPlutus::from_plutus(#n).map_err(|e| e.with_field_name(#field_name))?,
                             }
                         });
                         let casts: Vec<_> = names
@@ -188,9 +190,11 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             .collect();
                         let assignments: Vec<_> = names
                             .iter()
-                            .map(|n| {
+                            .enumerate()
+                            .map(|(i, n)| {
+                                let field_name = format!("::{name}.{i}");
                                 quote! {
-                                    plutus_parser::AsPlutus::from_plutus(#n)?,
+                                    plutus_parser::AsPlutus::from_plutus(#n).map_err(|e| e.with_field_name(#field_name))?,
                                 }
                             })
                             .collect();
@@ -225,7 +229,7 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                 });
             }
             from_plutus.extend(quote! {
-                Err(plutus_parser::DecodeError::UnexpectedVariant { variant })
+                Err(plutus_parser::DecodeError::unexpected_variant(variant))
             });
 
             quote! {

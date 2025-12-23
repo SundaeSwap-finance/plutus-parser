@@ -33,8 +33,72 @@ pub use pallas_v1::{
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum DecodeError {
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("decode error at {path}: {kind}")]
+pub struct DecodeError {
+    kind: DecodeErrorKind,
+    path: String,
+}
+
+impl DecodeError {
+    pub fn new(kind: DecodeErrorKind) -> Self {
+        Self {
+            kind,
+            path: String::new(),
+        }
+    }
+
+    pub fn unexpected_variant(variant: u64) -> Self {
+        Self::new(DecodeErrorKind::UnexpectedVariant { variant })
+    }
+
+    pub fn unexpected_type<E: Into<String>, A: Into<String>>(expected: E, actual: A) -> Self {
+        Self::new(DecodeErrorKind::UnexpectedType {
+            expected: expected.into(),
+            actual: actual.into(),
+        })
+    }
+
+    pub fn wrong_tuple_field_count(expected: usize, actual: usize) -> Self {
+        Self::new(DecodeErrorKind::WrongTupleFieldCount { expected, actual })
+    }
+
+    pub fn wrong_variant_field_count(variant: u64, expected: usize, actual: usize) -> Self {
+        Self::new(DecodeErrorKind::WrongVariantFieldCount {
+            variant,
+            expected,
+            actual,
+        })
+    }
+
+    pub fn out_of_range(value: impl std::fmt::Display) -> Self {
+        Self::new(DecodeErrorKind::OutOfRange {
+            value: value.to_string(),
+        })
+    }
+
+    pub fn invalid_cbor(error: minicbor::decode::Error) -> Self {
+        Self::new(DecodeErrorKind::InvalidCbor(MinicborDecodeError(error)))
+    }
+
+    pub fn custom(message: impl Into<String>) -> Self {
+        Self::new(DecodeErrorKind::Custom(message.into()))
+    }
+
+    pub fn with_field_name(mut self, name: impl std::fmt::Display) -> Self {
+        if self.path.is_empty() {
+            self.path = name.to_string();
+        } else if self.path.starts_with("[") || self.path.starts_with(":") {
+            self.path = format!("{name}{}", self.path);
+        } else {
+            self.path = format!("{name}.{}", self.path);
+        }
+        self
+    }
+}
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum DecodeErrorKind {
     #[error("unexpected variant {variant}")]
     UnexpectedVariant { variant: u64 },
     #[error("unexpected type (expected {expected}, found {actual})")]
@@ -47,18 +111,30 @@ pub enum DecodeError {
         expected: usize,
         actual: usize,
     },
+    #[error("value {value} out of range")]
+    OutOfRange { value: String },
     #[error("invalid cbor: {0}")]
-    InvalidCbor(minicbor::decode::Error),
+    InvalidCbor(MinicborDecodeError),
     #[error("{0}")]
     Custom(String),
 }
+
+#[derive(Error, Debug)]
+#[error("{0}")]
+pub struct MinicborDecodeError(minicbor::decode::Error);
+impl PartialEq for MinicborDecodeError {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_string() == other.0.to_string()
+    }
+}
+impl Eq for MinicborDecodeError {}
 
 pub trait AsPlutus: Sized {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError>;
     fn to_plutus(self) -> PlutusData;
 
     fn from_plutus_bytes(bytes: &[u8]) -> Result<Self, DecodeError> {
-        let data = minicbor::decode::<PlutusData>(bytes).map_err(DecodeError::InvalidCbor)?;
+        let data = minicbor::decode::<PlutusData>(bytes).map_err(DecodeError::invalid_cbor)?;
         Self::from_plutus(data)
     }
 
@@ -69,7 +145,13 @@ pub trait AsPlutus: Sized {
 
     fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
         let items = parse_array(data)?;
-        items.into_iter().map(Self::from_plutus).collect()
+        items
+            .into_iter()
+            .enumerate()
+            .map(|(index, item)| {
+                Self::from_plutus(item).map_err(|e| e.with_field_name(format!("[{index}]")))
+            })
+            .collect()
     }
 
     fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
@@ -81,10 +163,7 @@ pub fn parse_array(data: PlutusData) -> Result<Vec<PlutusData>, DecodeError> {
     let array = match data {
         PlutusData::Array(array) => array,
         other => {
-            return Err(DecodeError::UnexpectedType {
-                expected: "Array".to_string(),
-                actual: type_name(&other),
-            });
+            return Err(DecodeError::unexpected_type("Array", type_name(&other)));
         }
     };
     Ok(array.to_vec())
@@ -94,24 +173,18 @@ pub fn parse_tuple<const N: usize>(data: PlutusData) -> Result<[PlutusData; N], 
     let array = parse_array(data)?;
     array
         .try_into()
-        .map_err(|f: Vec<PlutusData>| DecodeError::WrongTupleFieldCount {
-            expected: N,
-            actual: f.len(),
-        })
+        .map_err(|f: Vec<PlutusData>| DecodeError::wrong_tuple_field_count(N, f.len()))
 }
 
 pub fn parse_constr(data: PlutusData) -> Result<(u64, Vec<PlutusData>), DecodeError> {
     let constr = match data {
         PlutusData::Constr(constr) => constr,
         other => {
-            return Err(DecodeError::UnexpectedType {
-                expected: "Constr".to_string(),
-                actual: type_name(&other),
-            });
+            return Err(DecodeError::unexpected_type("Constr", type_name(&other)));
         }
     };
     let Some(variant) = constr.constructor_value() else {
-        return Err(DecodeError::Custom("value has invalid tag".to_string()));
+        return Err(DecodeError::custom("value has invalid tag"));
     };
     Ok((variant, constr.fields.to_vec()))
 }
@@ -122,21 +195,14 @@ pub fn parse_variant<const N: usize>(
 ) -> Result<[PlutusData; N], DecodeError> {
     fields
         .try_into()
-        .map_err(|f: Vec<PlutusData>| DecodeError::WrongVariantFieldCount {
-            variant,
-            expected: N,
-            actual: f.len(),
-        })
+        .map_err(|f: Vec<PlutusData>| DecodeError::wrong_variant_field_count(variant, N, f.len()))
 }
 
 pub fn parse_map(data: PlutusData) -> Result<Vec<(PlutusData, PlutusData)>, DecodeError> {
     let kvps = match data {
         PlutusData::Map(kvps) => kvps,
         other => {
-            return Err(DecodeError::UnexpectedType {
-                expected: "Map".to_string(),
-                actual: type_name(&other),
-            });
+            return Err(DecodeError::unexpected_type("Map", type_name(&other)));
         }
     };
     Ok(kvps.to_vec())
@@ -171,7 +237,7 @@ pub fn create_map(kvps: Vec<(PlutusData, PlutusData)>) -> PlutusData {
     PlutusData::Map(KeyValuePairs::Def(kvps))
 }
 
-pub(crate) fn type_name(data: &PlutusData) -> String {
+pub(crate) fn type_name(data: &PlutusData) -> &str {
     match data {
         PlutusData::Array(_) => "Array",
         PlutusData::BigInt(_) => "BigInt",
@@ -179,5 +245,4 @@ pub(crate) fn type_name(data: &PlutusData) -> String {
         PlutusData::Constr(_) => "Constr",
         PlutusData::Map(_) => "Map",
     }
-    .to_string()
 }
