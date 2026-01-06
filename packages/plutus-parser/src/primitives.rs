@@ -106,11 +106,26 @@ impl AsPlutus for u8 {
     // Vec<u8> should be BoundedBytes
     fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
         let bytes = BoundedBytes::from_plutus(data)?;
-        Ok(bytes.to_vec())
+        Ok(bytes.into())
     }
 
     fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
         let bytes = BoundedBytes::from(value);
+        PlutusData::BoundedBytes(bytes)
+    }
+
+    // [u8; N] should be BoundedBytes
+    fn array_from_plutus<const N: usize>(data: PlutusData) -> Result<[Self; N], DecodeError> {
+        let bytes = BoundedBytes::from_plutus(data)?;
+        let vec: Vec<u8> = bytes.into();
+        match vec.try_into() {
+            Ok(array) => Ok(array),
+            Err(v) => Err(DecodeError::wrong_length(N, v.len())),
+        }
+    }
+
+    fn array_to_plutus<const N: usize>(value: [Self; N]) -> PlutusData {
+        let bytes = BoundedBytes::from(value.to_vec());
         PlutusData::BoundedBytes(bytes)
     }
 }
@@ -197,6 +212,16 @@ impl<T: AsPlutus> AsPlutus for Option<T> {
             Some(value) => create_constr(0, vec![value.to_plutus()]),
             None => create_constr(1, vec![]),
         }
+    }
+}
+
+impl<T: AsPlutus, const N: usize> AsPlutus for [T; N] {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        T::array_from_plutus(data)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        T::array_to_plutus(self)
     }
 }
 

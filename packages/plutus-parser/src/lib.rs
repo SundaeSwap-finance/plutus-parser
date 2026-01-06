@@ -59,6 +59,10 @@ impl DecodeError {
         })
     }
 
+    pub fn wrong_length(expected: usize, actual: usize) -> Self {
+        Self::new(DecodeErrorKind::WrongLength { expected, actual })
+    }
+
     pub fn wrong_tuple_field_count(expected: usize, actual: usize) -> Self {
         Self::new(DecodeErrorKind::WrongTupleFieldCount { expected, actual })
     }
@@ -103,6 +107,8 @@ pub enum DecodeErrorKind {
     UnexpectedVariant { variant: u64 },
     #[error("unexpected type (expected {expected}, found {actual})")]
     UnexpectedType { expected: String, actual: String },
+    #[error("unexpected length for array (expected {expected}, found {actual})")]
+    WrongLength { expected: usize, actual: usize },
     #[error("unexpected field count for tuple (expected {expected}, found {actual})")]
     WrongTupleFieldCount { expected: usize, actual: usize },
     #[error("unexpected field count for variant {variant} (expected {expected}, found {actual})")]
@@ -155,6 +161,28 @@ pub trait AsPlutus: Sized {
     }
 
     fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
+        create_array(value.into_iter().map(Self::to_plutus).collect())
+    }
+
+    fn array_from_plutus<const N: usize>(data: PlutusData) -> Result<[Self; N], DecodeError> {
+        let items = parse_array(data)?;
+        if items.len() != N {
+            return Err(DecodeError::wrong_length(N, items.len()));
+        }
+        let result = items
+            .into_iter()
+            .enumerate()
+            .map(|(index, item)| {
+                Self::from_plutus(item).map_err(|e| e.with_field_name(format!("[{index}]")))
+            })
+            .collect::<Result<Vec<Self>, DecodeError>>()?;
+
+        result
+            .try_into()
+            .map_err(|e: Vec<_>| DecodeError::wrong_length(N, e.len()))
+    }
+
+    fn array_to_plutus<const N: usize>(value: [Self; N]) -> PlutusData {
         create_array(value.into_iter().map(Self::to_plutus).collect())
     }
 }

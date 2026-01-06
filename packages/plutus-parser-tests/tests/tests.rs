@@ -296,6 +296,59 @@ fn should_support_plutus_data_fields() {
 }
 
 #[test]
+fn should_support_array_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u16; 2],
+    }
+    let data = Basic {
+        data: [0xcafe, 0xbabe],
+    };
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            PlutusData::BigInt(BigInt::Int(0xcafe.into())),
+            PlutusData::BigInt(BigInt::Int(0xbabe.into())),
+        ])],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_error_when_array_fields_have_wrong_size() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u16; 2],
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            PlutusData::BigInt(BigInt::Int(0xcafe.into())),
+            PlutusData::BigInt(BigInt::Int(0xbabe.into())),
+            PlutusData::BigInt(BigInt::Int(0xd00d.into())),
+        ])],
+    );
+
+    let error = DecodeError::wrong_length(2, 3).with_field_name("data");
+
+    assert_eq!(Basic::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_support_byte_array_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u8; 28],
+    }
+    let data = Basic { data: [0x67; 28] };
+    let plutus = create_constr(0, vec![PlutusData::BoundedBytes(vec![0x67; 28].into())]);
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
 fn should_include_field_names_in_errors() {
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
     struct Basic {
@@ -358,10 +411,54 @@ fn should_include_nested_field_indices_in_errors() {
 }
 
 #[test]
-fn should_include_array_indices_in_errors() {
+fn should_include_array_indices_in_vec_errors() {
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
     struct Collection {
         items: Vec<Item>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Item {
+        foo: Option<String>,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x01].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x02].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    1,
+                    vec![PlutusData::BoundedBytes(vec![0x03].into())],
+                )],
+            ),
+        ])],
+    );
+
+    let error = DecodeError::wrong_variant_field_count(1, 0, 1).with_field_name("items[2].foo");
+
+    assert_eq!(Collection::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_array_indices_in_array_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Collection {
+        items: [Item; 3],
     }
 
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
