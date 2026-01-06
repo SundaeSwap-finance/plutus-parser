@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use plutus_parser::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, MaybeIndefArray, PlutusData, create_array,
+    AsPlutus, BigInt, BoundedBytes, DecodeError, Hash, MaybeIndefArray, PlutusData, create_array,
     create_constr, create_map,
 };
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
@@ -162,6 +162,25 @@ fn should_support_vec_u8_as_bytes() {
             PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69])),
             PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69])),
         ],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_hashes() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct HasHash {
+        hash: Hash<28>,
+    }
+
+    let data = HasHash {
+        hash: Hash::new([0x69; 28]),
+    };
+
+    let plutus = create_constr(
+        0,
+        vec![PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69; 28]))],
     );
 
     assert_encoded(data, plutus);

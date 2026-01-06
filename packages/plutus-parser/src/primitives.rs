@@ -1,12 +1,5 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::Hash,
-};
-
-use indexmap::IndexMap;
-
 use crate::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, PlutusData, create_array, create_constr,
+    AsPlutus, BigInt, BoundedBytes, DecodeError, Hash, PlutusData, create_array, create_constr,
     create_map, parse_constr, parse_map, parse_tuple, parse_variant, type_name,
 };
 
@@ -193,6 +186,18 @@ impl AsPlutus for String {
     }
 }
 
+impl<const BYTES: usize> AsPlutus for Hash<BYTES> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let bytes: [u8; BYTES] = AsPlutus::from_plutus(data)?;
+        Ok(Hash::new(bytes))
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        let bytes = BoundedBytes::from(self.to_vec());
+        bytes.to_plutus()
+    }
+}
+
 impl<T: AsPlutus> AsPlutus for Option<T> {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let (variant, fields) = parse_constr(data)?;
@@ -259,14 +264,20 @@ macro_rules! impl_map {
     };
 }
 
-impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for IndexMap<TKey, TVal> {
+impl<TKey: AsPlutus + std::hash::Hash + Eq, TVal: AsPlutus> AsPlutus
+    for indexmap::IndexMap<TKey, TVal>
+{
     impl_map!();
 }
 
-impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for HashMap<TKey, TVal> {
+impl<TKey: AsPlutus + std::hash::Hash + Eq, TVal: AsPlutus> AsPlutus
+    for std::collections::HashMap<TKey, TVal>
+{
     impl_map!();
 }
 
-impl<TKey: AsPlutus + PartialOrd + Ord, TVal: AsPlutus> AsPlutus for BTreeMap<TKey, TVal> {
+impl<TKey: AsPlutus + PartialOrd + Ord, TVal: AsPlutus> AsPlutus
+    for std::collections::BTreeMap<TKey, TVal>
+{
     impl_map!();
 }
