@@ -7,28 +7,28 @@ pub use plutus_parser_derive::*;
 pub use minicbor_v0_25 as minicbor;
 #[cfg(feature = "pallas-v0_32")]
 pub use pallas_v0_32::{
-    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+    BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
 #[cfg(feature = "pallas-v0_33")]
 pub use minicbor_v0_25 as minicbor;
 #[cfg(feature = "pallas-v0_33")]
 pub use pallas_v0_33::{
-    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+    BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
 #[cfg(feature = "pallas-v0_34")]
 pub use minicbor_v0_25 as minicbor;
 #[cfg(feature = "pallas-v0_34")]
 pub use pallas_v0_34::{
-    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+    BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
 #[cfg(feature = "pallas-v1")]
 pub use minicbor_v0_26 as minicbor;
 #[cfg(feature = "pallas-v1")]
 pub use pallas_v1::{
-    BigInt, BoundedBytes, Constr, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+    BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
 use thiserror::Error;
@@ -57,6 +57,10 @@ impl DecodeError {
             expected: expected.into(),
             actual: actual.into(),
         })
+    }
+
+    pub fn wrong_length(expected: usize, actual: usize) -> Self {
+        Self::new(DecodeErrorKind::WrongLength { expected, actual })
     }
 
     pub fn wrong_tuple_field_count(expected: usize, actual: usize) -> Self {
@@ -103,6 +107,8 @@ pub enum DecodeErrorKind {
     UnexpectedVariant { variant: u64 },
     #[error("unexpected type (expected {expected}, found {actual})")]
     UnexpectedType { expected: String, actual: String },
+    #[error("unexpected length for array (expected {expected}, found {actual})")]
+    WrongLength { expected: usize, actual: usize },
     #[error("unexpected field count for tuple (expected {expected}, found {actual})")]
     WrongTupleFieldCount { expected: usize, actual: usize },
     #[error("unexpected field count for variant {variant} (expected {expected}, found {actual})")]
@@ -155,6 +161,28 @@ pub trait AsPlutus: Sized {
     }
 
     fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
+        create_array(value.into_iter().map(Self::to_plutus).collect())
+    }
+
+    fn array_from_plutus<const N: usize>(data: PlutusData) -> Result<[Self; N], DecodeError> {
+        let items = parse_array(data)?;
+        if items.len() != N {
+            return Err(DecodeError::wrong_length(N, items.len()));
+        }
+        let result = items
+            .into_iter()
+            .enumerate()
+            .map(|(index, item)| {
+                Self::from_plutus(item).map_err(|e| e.with_field_name(format!("[{index}]")))
+            })
+            .collect::<Result<Vec<Self>, DecodeError>>()?;
+
+        result
+            .try_into()
+            .map_err(|e: Vec<_>| DecodeError::wrong_length(N, e.len()))
+    }
+
+    fn array_to_plutus<const N: usize>(value: [Self; N]) -> PlutusData {
         create_array(value.into_iter().map(Self::to_plutus).collect())
     }
 }

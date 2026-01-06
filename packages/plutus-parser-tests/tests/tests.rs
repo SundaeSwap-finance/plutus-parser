@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use plutus_parser::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, MaybeIndefArray, PlutusData, create_array,
-    create_constr, create_map,
+    AsPlutus, BigInt, BoundedBytes, Constr, DecodeError, Hash, KeyValuePairs, MaybeIndefArray,
+    PlutusData, create_array, create_constr, create_map,
 };
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
 
@@ -168,6 +168,25 @@ fn should_support_vec_u8_as_bytes() {
 }
 
 #[test]
+fn should_support_hashes() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct HasHash {
+        hash: Hash<28>,
+    }
+
+    let data = HasHash {
+        hash: Hash::new([0x69; 28]),
+    };
+
+    let plutus = create_constr(
+        0,
+        vec![PlutusData::BoundedBytes(BoundedBytes::from(vec![0x69; 28]))],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
 fn should_support_maps() {
     let mut data = BTreeMap::new();
     data.insert("bar".to_string(), 9001u64);
@@ -238,7 +257,7 @@ fn should_match_plutus_conventions() {
     };
     let expected_bytes = hex::decode("d8799f0102d8799f03ffd87a80ff").unwrap();
     let mut enc_bytes = vec![];
-    minicbor::encode(data.to_plutus(), &mut enc_bytes).expect("infallible");
+    plutus_parser::minicbor::encode(data.to_plutus(), &mut enc_bytes).expect("infallible");
 
     assert_eq!(enc_bytes, expected_bytes);
 }
@@ -291,6 +310,92 @@ fn should_support_plutus_data_fields() {
             vec![0xca, 0xfe, 0xba, 0xbe].into(),
         )],
     );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_plutus_primitive_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Everything {
+        constr: Constr<PlutusData>,
+        map: KeyValuePairs<PlutusData, PlutusData>,
+        array: MaybeIndefArray<PlutusData>,
+    }
+
+    let data = Everything {
+        constr: Constr {
+            tag: 1340,
+            any_constructor: None,
+            fields: MaybeIndefArray::Indef(vec![]),
+        },
+        map: KeyValuePairs::Def(vec![(
+            PlutusData::BigInt(BigInt::Int(1.into())),
+            PlutusData::BigInt(BigInt::Int(2.into())),
+        )]),
+        array: MaybeIndefArray::Def(vec![]),
+    };
+    let plutus = create_constr(
+        0,
+        vec![
+            PlutusData::Constr(data.constr.clone()),
+            PlutusData::Map(data.map.clone()),
+            PlutusData::Array(data.array.clone()),
+        ],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_array_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u16; 2],
+    }
+    let data = Basic {
+        data: [0xcafe, 0xbabe],
+    };
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            PlutusData::BigInt(BigInt::Int(0xcafe.into())),
+            PlutusData::BigInt(BigInt::Int(0xbabe.into())),
+        ])],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_error_when_array_fields_have_wrong_size() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u16; 2],
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            PlutusData::BigInt(BigInt::Int(0xcafe.into())),
+            PlutusData::BigInt(BigInt::Int(0xbabe.into())),
+            PlutusData::BigInt(BigInt::Int(0xd00d.into())),
+        ])],
+    );
+
+    let error = DecodeError::wrong_length(2, 3).with_field_name("data");
+
+    assert_eq!(Basic::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_support_byte_array_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Basic {
+        data: [u8; 28],
+    }
+    let data = Basic { data: [0x67; 28] };
+    let plutus = create_constr(0, vec![PlutusData::BoundedBytes(vec![0x67; 28].into())]);
 
     assert_encoded(data, plutus);
 }
@@ -358,10 +463,54 @@ fn should_include_nested_field_indices_in_errors() {
 }
 
 #[test]
-fn should_include_array_indices_in_errors() {
+fn should_include_array_indices_in_vec_errors() {
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
     struct Collection {
         items: Vec<Item>,
+    }
+
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Item {
+        foo: Option<String>,
+    }
+
+    let plutus = create_constr(
+        0,
+        vec![create_array(vec![
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x01].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    0,
+                    vec![PlutusData::BoundedBytes(vec![0x02].into())],
+                )],
+            ),
+            create_constr(
+                0,
+                vec![create_constr(
+                    1,
+                    vec![PlutusData::BoundedBytes(vec![0x03].into())],
+                )],
+            ),
+        ])],
+    );
+
+    let error = DecodeError::wrong_variant_field_count(1, 0, 1).with_field_name("items[2].foo");
+
+    assert_eq!(Collection::from_plutus(plutus), Err(error));
+}
+
+#[test]
+fn should_include_array_indices_in_array_errors() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    struct Collection {
+        items: [Item; 3],
     }
 
     #[derive(AsPlutus, Debug, PartialEq, Eq)]

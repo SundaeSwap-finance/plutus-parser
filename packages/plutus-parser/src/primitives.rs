@@ -1,13 +1,7 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::Hash,
-};
-
-use indexmap::IndexMap;
-
 use crate::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, PlutusData, create_array, create_constr,
-    create_map, parse_constr, parse_map, parse_tuple, parse_variant, type_name,
+    AsPlutus, BigInt, BoundedBytes, Constr, DecodeError, Hash, KeyValuePairs, MaybeIndefArray,
+    PlutusData, create_array, create_constr, create_map, parse_constr, parse_map, parse_tuple,
+    parse_variant, type_name,
 };
 
 impl AsPlutus for PlutusData {
@@ -17,6 +11,45 @@ impl AsPlutus for PlutusData {
 
     fn to_plutus(self) -> PlutusData {
         self
+    }
+}
+
+impl AsPlutus for Constr<PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Constr(constr) = data else {
+            return Err(DecodeError::unexpected_type("Constr", type_name(&data)));
+        };
+        Ok(constr)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Constr(self)
+    }
+}
+
+impl AsPlutus for KeyValuePairs<PlutusData, PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Map(map) = data else {
+            return Err(DecodeError::unexpected_type("Map", type_name(&data)));
+        };
+        Ok(map)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Map(self)
+    }
+}
+
+impl AsPlutus for MaybeIndefArray<PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Array(array) = data else {
+            return Err(DecodeError::unexpected_type("Array", type_name(&data)));
+        };
+        Ok(array)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Array(self)
     }
 }
 
@@ -106,11 +139,26 @@ impl AsPlutus for u8 {
     // Vec<u8> should be BoundedBytes
     fn vec_from_plutus(data: PlutusData) -> Result<Vec<Self>, DecodeError> {
         let bytes = BoundedBytes::from_plutus(data)?;
-        Ok(bytes.to_vec())
+        Ok(bytes.into())
     }
 
     fn vec_to_plutus(value: Vec<Self>) -> PlutusData {
         let bytes = BoundedBytes::from(value);
+        PlutusData::BoundedBytes(bytes)
+    }
+
+    // [u8; N] should be BoundedBytes
+    fn array_from_plutus<const N: usize>(data: PlutusData) -> Result<[Self; N], DecodeError> {
+        let bytes = BoundedBytes::from_plutus(data)?;
+        let vec: Vec<u8> = bytes.into();
+        match vec.try_into() {
+            Ok(array) => Ok(array),
+            Err(v) => Err(DecodeError::wrong_length(N, v.len())),
+        }
+    }
+
+    fn array_to_plutus<const N: usize>(value: [Self; N]) -> PlutusData {
+        let bytes = BoundedBytes::from(value.to_vec());
         PlutusData::BoundedBytes(bytes)
     }
 }
@@ -178,6 +226,18 @@ impl AsPlutus for String {
     }
 }
 
+impl<const BYTES: usize> AsPlutus for Hash<BYTES> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let bytes: [u8; BYTES] = AsPlutus::from_plutus(data)?;
+        Ok(Hash::new(bytes))
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        let bytes = BoundedBytes::from(self.to_vec());
+        bytes.to_plutus()
+    }
+}
+
 impl<T: AsPlutus> AsPlutus for Option<T> {
     fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
         let (variant, fields) = parse_constr(data)?;
@@ -197,6 +257,16 @@ impl<T: AsPlutus> AsPlutus for Option<T> {
             Some(value) => create_constr(0, vec![value.to_plutus()]),
             None => create_constr(1, vec![]),
         }
+    }
+}
+
+impl<T: AsPlutus, const N: usize> AsPlutus for [T; N] {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        T::array_from_plutus(data)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        T::array_to_plutus(self)
     }
 }
 
@@ -234,14 +304,20 @@ macro_rules! impl_map {
     };
 }
 
-impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for IndexMap<TKey, TVal> {
+impl<TKey: AsPlutus + std::hash::Hash + Eq, TVal: AsPlutus> AsPlutus
+    for indexmap::IndexMap<TKey, TVal>
+{
     impl_map!();
 }
 
-impl<TKey: AsPlutus + Hash + Eq, TVal: AsPlutus> AsPlutus for HashMap<TKey, TVal> {
+impl<TKey: AsPlutus + std::hash::Hash + Eq, TVal: AsPlutus> AsPlutus
+    for std::collections::HashMap<TKey, TVal>
+{
     impl_map!();
 }
 
-impl<TKey: AsPlutus + PartialOrd + Ord, TVal: AsPlutus> AsPlutus for BTreeMap<TKey, TVal> {
+impl<TKey: AsPlutus + PartialOrd + Ord, TVal: AsPlutus> AsPlutus
+    for std::collections::BTreeMap<TKey, TVal>
+{
     impl_map!();
 }
