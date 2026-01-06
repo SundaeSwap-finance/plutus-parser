@@ -1,6 +1,7 @@
 use crate::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, Hash, PlutusData, create_array, create_constr,
-    create_map, parse_constr, parse_map, parse_tuple, parse_variant, type_name,
+    AsPlutus, BigInt, BoundedBytes, Constr, DecodeError, Hash, KeyValuePairs, MaybeIndefArray,
+    PlutusData, create_array, create_constr, create_map, parse_constr, parse_map, parse_tuple,
+    parse_variant, type_name,
 };
 
 impl AsPlutus for PlutusData {
@@ -10,6 +11,45 @@ impl AsPlutus for PlutusData {
 
     fn to_plutus(self) -> PlutusData {
         self
+    }
+}
+
+impl AsPlutus for Constr<PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Constr(constr) = data else {
+            return Err(DecodeError::unexpected_type("Constr", type_name(&data)));
+        };
+        Ok(constr)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Constr(self)
+    }
+}
+
+impl AsPlutus for KeyValuePairs<PlutusData, PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Map(map) = data else {
+            return Err(DecodeError::unexpected_type("Map", type_name(&data)));
+        };
+        Ok(map)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Map(self)
+    }
+}
+
+impl AsPlutus for MaybeIndefArray<PlutusData> {
+    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Array(array) = data else {
+            return Err(DecodeError::unexpected_type("Array", type_name(&data)));
+        };
+        Ok(array)
+    }
+
+    fn to_plutus(self) -> PlutusData {
+        PlutusData::Array(self)
     }
 }
 

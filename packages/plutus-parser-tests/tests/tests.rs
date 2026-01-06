@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use plutus_parser::{
-    AsPlutus, BigInt, BoundedBytes, DecodeError, Hash, MaybeIndefArray, PlutusData, create_array,
-    create_constr, create_map,
+    AsPlutus, BigInt, BoundedBytes, Constr, DecodeError, Hash, KeyValuePairs, MaybeIndefArray,
+    PlutusData, create_array, create_constr, create_map,
 };
 use plutus_parser_tests::{Interval, IntervalBound, IntervalBoundType};
 
@@ -309,6 +309,39 @@ fn should_support_plutus_data_fields() {
         vec![PlutusData::BoundedBytes(
             vec![0xca, 0xfe, 0xba, 0xbe].into(),
         )],
+    );
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_plutus_primitive_fields() {
+    #[derive(AsPlutus, Clone, Debug, PartialEq, Eq)]
+    struct Everything {
+        constr: Constr<PlutusData>,
+        map: KeyValuePairs<PlutusData, PlutusData>,
+        array: MaybeIndefArray<PlutusData>,
+    }
+
+    let data = Everything {
+        constr: Constr {
+            tag: 1340,
+            any_constructor: None,
+            fields: MaybeIndefArray::Indef(vec![]),
+        },
+        map: KeyValuePairs::Def(vec![(
+            PlutusData::BigInt(BigInt::Int(1.into())),
+            PlutusData::BigInt(BigInt::Int(2.into())),
+        )]),
+        array: MaybeIndefArray::Def(vec![]),
+    };
+    let plutus = create_constr(
+        0,
+        vec![
+            PlutusData::Constr(data.constr.clone()),
+            PlutusData::Map(data.map.clone()),
+            PlutusData::Array(data.array.clone()),
+        ],
     );
 
     assert_encoded(data, plutus);
