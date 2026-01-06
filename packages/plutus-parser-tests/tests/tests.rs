@@ -257,7 +257,7 @@ fn should_match_plutus_conventions() {
     };
     let expected_bytes = hex::decode("d8799f0102d8799f03ffd87a80ff").unwrap();
     let mut enc_bytes = vec![];
-    minicbor::encode(data.to_plutus(), &mut enc_bytes).expect("infallible");
+    plutus_parser::minicbor::encode(data.to_plutus(), &mut enc_bytes).expect("infallible");
 
     assert_eq!(enc_bytes, expected_bytes);
 }
