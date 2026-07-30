@@ -1,6 +1,6 @@
 [package]
 name = "plutus-parser"
-version = "0.6.0"
+version = "1.0.0"
 edition = "2024"
 description = "A simple crate to derive `from_plutus` and `to_plutus` on Rust types."
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ pallas-v0_32 = { package = "pallas-primitives", version = "0.32", optional = tru
 pallas-v0_33 = { package = "pallas-primitives", version = "0.33", optional = true }
 pallas-v0_34 = { package = "pallas-primitives", version = "0.34", optional = true }
 pallas-v1 = { package = "pallas-primitives", version = "1", optional = true }
-plutus-parser-derive = { path = "../plutus-parser-derive", version = "0.6.0", optional = true }
+plutus-parser-derive = { path = "../plutus-parser-derive", version = "1.0.0", optional = true }
 thiserror = "2"
 
 [dev-dependencies]
