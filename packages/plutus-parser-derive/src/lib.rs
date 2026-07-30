@@ -4,18 +4,24 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, quote_spanned};
 use syn::{
-    Attribute, Data, DeriveInput, Error, Expr, ExprLit, Fields, Ident, Lit, Meta,
-    parse_macro_input, spanned::Spanned,
+    Attribute, Data, DeriveInput, Error, Fields, Ident, LitInt, Meta, parse_macro_input,
+    spanned::Spanned,
 };
 
-#[proc_macro_derive(AsPlutus, attributes(variant))]
+#[proc_macro_derive(AsPlutus, attributes(plutus))]
 pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
     let input: DeriveInput = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
     let implementation = match &input.data {
         Data::Struct(s) => {
-            let n = get_variant(&input.attrs).unwrap_or_default();
+            let format = match get_format(&input.attrs) {
+                Ok(Some(f)) => f,
+                Ok(None) => DataFormat::Constr { variant: 0 },
+                Err(e) => {
+                    return e.to_compile_error().into();
+                }
+            };
             let from_plutus;
             let to_plutus;
             match &s.fields {
@@ -39,35 +45,63 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                         })
                         .collect();
 
-                    from_plutus = quote! {
-                        let (variant, fields) = plutus_parser::parse_constr(data)?;
-                        if variant == #n {
-                            let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
-                            return Ok(Self {
-                                #(#assignments)*
-                            });
+                    match format {
+                        DataFormat::Constr { variant } => {
+                            from_plutus = quote! {
+                                let (variant, fields) = plutus_parser::parse_constr(data)?;
+                                if variant == #variant {
+                                    let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
+                                    return Ok(Self {
+                                        #(#assignments)*
+                                    });
+                                }
+                                Err(plutus_parser::DecodeError::unexpected_variant(variant))
+                            };
+                            to_plutus = quote! {
+                                plutus_parser::create_constr(#variant, vec![
+                                    #(#casts)*
+                                ])
+                            };
                         }
-                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
-                    };
-                    to_plutus = quote! {
-                        plutus_parser::create_constr(#n, vec![
-                            #(#casts)*
-                        ])
-                    };
-                }
-                Fields::Unit => {
-                    from_plutus = quote! {
-                        let (variant, fields) = plutus_parser::parse_constr(data)?;
-                        if variant == #n {
-                            let [] = plutus_parser::parse_variant(variant, fields)?;
-                            return Ok(Self);
+                        DataFormat::List => {
+                            from_plutus = quote! {
+                                let [#(#names),*] = plutus_parser::parse_tuple(data)?;
+                                return Ok(Self {
+                                    #(#assignments)*
+                                });
+                            };
+                            to_plutus = quote! {
+                                plutus_parser::create_array(vec![
+                                    #(#casts)*
+                                ])
+                            };
                         }
-                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
-                    };
-                    to_plutus = quote! {
-                        plutus_parser::create_constr(#n, vec![])
                     }
                 }
+                Fields::Unit => match format {
+                    DataFormat::Constr { variant } => {
+                        from_plutus = quote! {
+                            let (variant, fields) = plutus_parser::parse_constr(data)?;
+                            if variant == #variant {
+                                let [] = plutus_parser::parse_variant(variant, fields)?;
+                                return Ok(Self);
+                            }
+                            Err(plutus_parser::DecodeError::unexpected_variant(variant))
+                        };
+                        to_plutus = quote! {
+                            plutus_parser::create_constr(#variant, vec![])
+                        }
+                    }
+                    DataFormat::List => {
+                        from_plutus = quote! {
+                            let [] = plutus_parser::parse_tuple(data)?;
+                            return Ok(Self);
+                        };
+                        to_plutus = quote! {
+                            plutus_parser::create_array(vec![])
+                        }
+                    }
+                },
                 Fields::Unnamed(fields) => {
                     let names: Vec<_> = fields
                         .unnamed
@@ -96,19 +130,35 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
                             }
                         })
                         .collect();
-                    from_plutus = quote! {
-                        let (variant, fields) = plutus_parser::parse_constr(data)?;
-                        if variant == #n {
-                            let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
-                            return Ok(Self(#(#assignments)*));
+                    match format {
+                        DataFormat::Constr { variant } => {
+                            from_plutus = quote! {
+                                let (variant, fields) = plutus_parser::parse_constr(data)?;
+                                if variant == #variant {
+                                    let [#(#names),*] = plutus_parser::parse_variant(variant, fields)?;
+                                    return Ok(Self(#(#assignments)*));
+                                }
+                                Err(plutus_parser::DecodeError::unexpected_variant(variant))
+                            };
+                            to_plutus = quote! {
+                                let Self(#(#names),*) = self;
+                                plutus_parser::create_constr(#variant, vec![
+                                    #(#casts)*
+                                ])
+                            }
                         }
-                        Err(plutus_parser::DecodeError::unexpected_variant(variant))
-                    };
-                    to_plutus = quote! {
-                        let Self(#(#names),*) = self;
-                        plutus_parser::create_constr(#n, vec![
-                            #(#casts)*
-                        ])
+                        DataFormat::List => {
+                            from_plutus = quote! {
+                                let [#(#names),*] = plutus_parser::parse_tuple(data)?;
+                                return Ok(Self(#(#assignments)*));
+                            };
+                            to_plutus = quote! {
+                                let Self(#(#names),*) = self;
+                                plutus_parser::create_array(vec![
+                                    #(#casts)*
+                                ])
+                            }
+                        }
                     }
                 }
             };
@@ -131,7 +181,13 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
             let mut seen_variants = HashSet::new();
             for variant in &e.variants {
                 let name = &variant.ident;
-                let n = get_variant(&variant.attrs).unwrap_or(seen_variants.len() as u64);
+                let n = match get_variant(&variant.attrs) {
+                    Ok(Some(variant)) => variant,
+                    Ok(None) => seen_variants.len() as u64,
+                    Err(e) => {
+                        return e.to_compile_error().into();
+                    }
+                };
                 seen_variants.insert(n);
                 let (from_clause, to_clause) = match &variant.fields {
                     Fields::Named(named) => {
@@ -261,20 +317,62 @@ pub fn derive_as_plutus(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn get_variant(attrs: &[Attribute]) -> Option<u64> {
-    attrs.iter().find_map(|a| {
-        let Meta::NameValue(name_value) = &a.meta else {
-            return None;
+enum DataFormat {
+    List,
+    Constr { variant: u64 },
+}
+
+fn get_format(attrs: &[Attribute]) -> Result<Option<DataFormat>, Error> {
+    for a in attrs {
+        let Meta::List(list) = &a.meta else {
+            continue;
         };
-        if !name_value.path.is_ident("variant") {
-            return None;
+        if !list.path.is_ident("plutus") {
+            continue;
         }
-        let Expr::Lit(ExprLit {
-            lit: Lit::Int(int), ..
-        }) = &name_value.value
-        else {
-            return None;
+        let mut format = None;
+        list.parse_nested_meta(|meta| {
+            if meta.path.is_ident("list") {
+                format = Some(DataFormat::List);
+                Ok(())
+            } else if meta.path.is_ident("constr") {
+                if !meta.input.is_empty() {
+                    let value = meta.value()?;
+                    let i: LitInt = value.parse()?;
+                    format = Some(DataFormat::Constr {
+                        variant: i.base10_parse()?,
+                    });
+                }
+                Ok(())
+            } else {
+                Err(Error::new(meta.input.span(), "unrecognized field"))
+            }
+        })?;
+        return Ok(format);
+    }
+    Ok(None)
+}
+
+fn get_variant(attrs: &[Attribute]) -> Result<Option<u64>, Error> {
+    for a in attrs {
+        let Meta::List(list) = &a.meta else {
+            continue;
         };
-        int.base10_parse().ok()
-    })
+        if !list.path.is_ident("plutus") {
+            continue;
+        }
+        let mut variant = None;
+        list.parse_nested_meta(|meta| {
+            if meta.path.is_ident("constr") {
+                let value = meta.value()?;
+                let i: LitInt = value.parse()?;
+                variant = Some(i.base10_parse()?);
+                Ok(())
+            } else {
+                Err(Error::new(meta.input.span(), "unrecognized field"))
+            }
+        })?;
+        return Ok(variant);
+    }
+    Ok(None)
 }

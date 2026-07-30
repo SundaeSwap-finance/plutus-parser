@@ -25,8 +25,8 @@ pub enum BlockReference {
 ```
 
 This library derives a set of conventions:
- - Structs convert to a `PlutusData::Constr` using variant `0`. You can add `#[variant = 2]` to use a different variant.
- - Enums convert to a `PlutusData::Constr`. The first variant uses variant 0, the second uses variant 1, nad so on. You can add `#[variant = 2]` to an individual variant to override this.
+ - Structs convert to a `PlutusData::Constr` using variant `0`. You can add `#[plutus(constr = 2)]` to use a different variant, or #[plutus(list)] to convert to a `PlutusData::Array` instead.
+ - Enums convert to a `PlutusData::Constr`. The first variant uses variant 0, the second uses variant 1, and so on. You can add `#[plutus(constr = 2)]` to an individual variant to override this.
  - Tuples convert to an `PlutusData::Array`.
  - Arrays and vectors both convert to a `PlutusData::Array`, except for `Vec<u8>` which converts to a `PlutusData::BoundedBytes`.
  - Numeric fields convert to a `PlutusData::Integer`.
