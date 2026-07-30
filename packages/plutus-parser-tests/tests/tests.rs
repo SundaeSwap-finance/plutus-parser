@@ -209,7 +209,7 @@ fn should_support_maps() {
 #[test]
 fn should_support_custom_variants_for_structs() {
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
-    #[variant = 2]
+    #[plutus(constr = 2)]
     pub struct Special {
         is_special: bool,
     }
@@ -224,12 +224,57 @@ fn should_support_custom_variants_for_structs() {
 fn should_support_custom_variants_for_enums() {
     #[derive(AsPlutus, Debug, PartialEq, Eq)]
     pub enum Destination {
-        #[variant = 1]
+        #[plutus(constr = 1)]
         Self_,
     }
 
     let data = Destination::Self_;
     let plutus = create_constr(1, vec![]);
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_structs_as_lists() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    #[plutus(list)]
+    struct IsList {
+        is_array: bool,
+        is_struct: bool,
+    }
+
+    let data = IsList {
+        is_array: true,
+        is_struct: false,
+    };
+    let plutus = create_array(vec![create_constr(1, vec![]), create_constr(0, vec![])]);
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_empty_structs_as_lists() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    #[plutus(list)]
+    struct Listy;
+
+    let data = Listy;
+    let plutus = create_array(vec![]);
+
+    assert_encoded(data, plutus);
+}
+
+#[test]
+fn should_support_tuple_structs_as_lists() {
+    #[derive(AsPlutus, Debug, PartialEq, Eq)]
+    #[plutus(list)]
+    struct ListTupley(String, u32);
+
+    let data = ListTupley("foo".to_string(), 1337);
+    let plutus = create_array(vec![
+        PlutusData::BoundedBytes(BoundedBytes::from("foo".as_bytes().to_vec())),
+        PlutusData::BigInt(BigInt::Int(1337.into())),
+    ]);
 
     assert_encoded(data, plutus);
 }

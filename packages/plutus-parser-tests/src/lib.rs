@@ -26,6 +26,6 @@ pub enum MultisigScript {
 
 #[derive(AsPlutus)]
 pub enum Destination {
-    #[variant = 1]
+    #[plutus(constr = 1)]
     Self_,
 }
