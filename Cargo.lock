@@ -169,9 +169,20 @@ dependencies = [
 
 [[package]]
 name = "pallas-codec"
-version = "1.1.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84f558ab7f9d4057aba59a3c8f18dcc06876d803dabced52c431b4ae5b137b2a"
+checksum = "02127db5290c42ea6f6138896acf6196c8a6783d9d26dfe6870fd5ea0ce31440"
+dependencies = [
+ "hex",
+ "minicbor 0.26.5",
+ "serde",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "pallas-codec"
+version = "1.5.0-rc.1"
+source = "git+https://github.com/txpipe/pallas?tag=v1.5.0-rc.1#4b76c2e809be92574e45f28ac1be91b29a8bbf4c"
 dependencies = [
  "hex",
  "minicbor 0.26.5",
@@ -226,13 +237,26 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "1.1.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5abe09448466b168f50eb0beaae4e38a16e49bdfe6b2fba5748ea17a025b15b1"
+checksum = "02480d918380d37a4e21c1d84c984f79bdc5e439f1de97ee1e08f1451b26f1c5"
 dependencies = [
  "cryptoxide",
  "hex",
- "pallas-codec 1.1.1",
+ "pallas-codec 1.4.0",
+ "rand_core 0.10.1",
+ "serde",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "pallas-crypto"
+version = "1.5.0-rc.1"
+source = "git+https://github.com/txpipe/pallas?tag=v1.5.0-rc.1#4b76c2e809be92574e45f28ac1be91b29a8bbf4c"
+dependencies = [
+ "cryptoxide",
+ "hex",
+ "pallas-codec 1.5.0-rc.1",
  "rand_core 0.10.1",
  "serde",
  "thiserror 2.0.19",
@@ -288,13 +312,25 @@ dependencies = [
 
 [[package]]
 name = "pallas-primitives"
-version = "1.1.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c2b627b97f708bbb0252834e300d56b1ccea9c982c0e4189d1a414c1b53c18"
+checksum = "dd1f296363961ee9e62a0979ee03d425aae8247d54705dc5efe07a4e06c11aa4"
 dependencies = [
  "hex",
- "pallas-codec 1.1.1",
- "pallas-crypto 1.1.1",
+ "pallas-codec 1.4.0",
+ "pallas-crypto 1.4.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pallas-primitives"
+version = "1.5.0-rc.1"
+source = "git+https://github.com/txpipe/pallas?tag=v1.5.0-rc.1#4b76c2e809be92574e45f28ac1be91b29a8bbf4c"
+dependencies = [
+ "hex",
+ "pallas-codec 1.5.0-rc.1",
+ "pallas-crypto 1.5.0-rc.1",
  "serde",
  "serde_json",
 ]
@@ -310,7 +346,8 @@ dependencies = [
  "pallas-primitives 0.32.1",
  "pallas-primitives 0.33.0",
  "pallas-primitives 0.34.0",
- "pallas-primitives 1.1.1",
+ "pallas-primitives 1.4.0",
+ "pallas-primitives 1.5.0-rc.1",
  "plutus-parser-derive",
  "thiserror 2.0.19",
 ]
