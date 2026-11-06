@@ -31,6 +31,13 @@ pub use pallas_v1::{
     BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
 };
 
+#[cfg(feature = "pallas-v1_5")]
+pub use minicbor_v0_26 as minicbor;
+#[cfg(feature = "pallas-v1_5")]
+pub use pallas_v1_5::{
+    BigInt, BoundedBytes, Constr, Hash, Int, KeyValuePairs, MaybeIndefArray, PlutusData,
+};
+
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -187,14 +194,14 @@ pub trait AsPlutus: Sized {
     }
 }
 
-pub fn parse_array(data: PlutusData) -> Result<Vec<PlutusData>, DecodeError> {
-    let array = match data {
+pub fn parse_array(mut data: PlutusData) -> Result<Vec<PlutusData>, DecodeError> {
+    let array = match &mut data {
         PlutusData::Array(array) => array,
         other => {
-            return Err(DecodeError::unexpected_type("Array", type_name(&other)));
+            return Err(DecodeError::unexpected_type("Array", type_name(other)));
         }
     };
-    Ok(array.to_vec())
+    Ok(std::mem::replace(array, MaybeIndefArray::Def(vec![])).to_vec())
 }
 
 pub fn parse_tuple<const N: usize>(data: PlutusData) -> Result<[PlutusData; N], DecodeError> {
@@ -204,17 +211,18 @@ pub fn parse_tuple<const N: usize>(data: PlutusData) -> Result<[PlutusData; N], 
         .map_err(|f: Vec<PlutusData>| DecodeError::wrong_tuple_field_count(N, f.len()))
 }
 
-pub fn parse_constr(data: PlutusData) -> Result<(u64, Vec<PlutusData>), DecodeError> {
-    let constr = match data {
+pub fn parse_constr(mut data: PlutusData) -> Result<(u64, Vec<PlutusData>), DecodeError> {
+    let constr = match &mut data {
         PlutusData::Constr(constr) => constr,
         other => {
-            return Err(DecodeError::unexpected_type("Constr", type_name(&other)));
+            return Err(DecodeError::unexpected_type("Constr", type_name(other)));
         }
     };
     let Some(variant) = constr.constructor_value() else {
         return Err(DecodeError::custom("value has invalid tag"));
     };
-    Ok((variant, constr.fields.to_vec()))
+    let fields = std::mem::replace(&mut constr.fields, MaybeIndefArray::Def(vec![]));
+    Ok((variant, fields.to_vec()))
 }
 
 pub fn parse_variant<const N: usize>(
@@ -226,14 +234,14 @@ pub fn parse_variant<const N: usize>(
         .map_err(|f: Vec<PlutusData>| DecodeError::wrong_variant_field_count(variant, N, f.len()))
 }
 
-pub fn parse_map(data: PlutusData) -> Result<Vec<(PlutusData, PlutusData)>, DecodeError> {
-    let kvps = match data {
+pub fn parse_map(mut data: PlutusData) -> Result<Vec<(PlutusData, PlutusData)>, DecodeError> {
+    let kvps = match &mut data {
         PlutusData::Map(kvps) => kvps,
         other => {
-            return Err(DecodeError::unexpected_type("Map", type_name(&other)));
+            return Err(DecodeError::unexpected_type("Map", type_name(other)));
         }
     };
-    Ok(kvps.to_vec())
+    Ok(std::mem::replace(kvps, KeyValuePairs::Def(vec![])).to_vec())
 }
 
 pub fn create_constr(variant: u64, fields: Vec<PlutusData>) -> PlutusData {

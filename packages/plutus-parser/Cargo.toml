@@ -15,6 +15,9 @@ pallas-v0_32 = { package = "pallas-primitives", version = "0.32", optional = tru
 pallas-v0_33 = { package = "pallas-primitives", version = "0.33", optional = true }
 pallas-v0_34 = { package = "pallas-primitives", version = "0.34", optional = true }
 pallas-v1 = { package = "pallas-primitives", version = "1", optional = true }
+# pallas 1.5 breaks compatibility with 1.x (Drop impl on PlutusData), so Cargo cannot
+# hold it next to the 1.x line from crates.io: pull it from git as a distinct package.
+pallas-v1_5 = { package = "pallas-primitives", git = "https://github.com/txpipe/pallas", tag = "v1.5.0-rc.1", optional = true }
 plutus-parser-derive = { path = "../plutus-parser-derive", version = "1.0.0", optional = true }
 thiserror = "2"
 
@@ -29,6 +32,7 @@ pallas-v0_32 = ["dep:pallas-v0_32", "dep:minicbor-v0_25"]
 pallas-v0_33 = ["dep:pallas-v0_33", "dep:minicbor-v0_25"]
 pallas-v0_34 = ["dep:pallas-v0_34", "dep:minicbor-v0_25"]
 pallas-v1 = ["dep:pallas-v1", "dep:minicbor-v0_26"]
+pallas-v1_5 = ["dep:pallas-v1_5", "dep:minicbor-v0_26"]
 
 [[example]]
 name = "example"
