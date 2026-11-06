@@ -15,11 +15,18 @@ impl AsPlutus for PlutusData {
 }
 
 impl AsPlutus for Constr<PlutusData> {
-    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let PlutusData::Constr(constr) = data else {
+    fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Constr(constr) = &mut data else {
             return Err(DecodeError::unexpected_type("Constr", type_name(&data)));
         };
-        Ok(constr)
+        Ok(std::mem::replace(
+            constr,
+            Constr {
+                tag: 121,
+                any_constructor: None,
+                fields: MaybeIndefArray::Def(vec![]),
+            },
+        ))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -28,11 +35,11 @@ impl AsPlutus for Constr<PlutusData> {
 }
 
 impl AsPlutus for KeyValuePairs<PlutusData, PlutusData> {
-    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let PlutusData::Map(map) = data else {
+    fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Map(map) = &mut data else {
             return Err(DecodeError::unexpected_type("Map", type_name(&data)));
         };
-        Ok(map)
+        Ok(std::mem::replace(map, KeyValuePairs::Def(vec![])))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -41,11 +48,11 @@ impl AsPlutus for KeyValuePairs<PlutusData, PlutusData> {
 }
 
 impl AsPlutus for MaybeIndefArray<PlutusData> {
-    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let PlutusData::Array(array) = data else {
+    fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::Array(array) = &mut data else {
             return Err(DecodeError::unexpected_type("Array", type_name(&data)));
         };
-        Ok(array)
+        Ok(std::mem::replace(array, MaybeIndefArray::Def(vec![])))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -54,11 +61,11 @@ impl AsPlutus for MaybeIndefArray<PlutusData> {
 }
 
 impl AsPlutus for BigInt {
-    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let PlutusData::BigInt(int) = data else {
+    fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::BigInt(int) = &mut data else {
             return Err(DecodeError::unexpected_type("BigInt", type_name(&data)));
         };
-        Ok(int)
+        Ok(std::mem::replace(int, BigInt::Int(0i64.into())))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -67,14 +74,14 @@ impl AsPlutus for BigInt {
 }
 
 impl AsPlutus for BoundedBytes {
-    fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-        let PlutusData::BoundedBytes(bytes) = data else {
+    fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+        let PlutusData::BoundedBytes(bytes) = &mut data else {
             return Err(DecodeError::unexpected_type(
                 "BoundedBytes",
                 type_name(&data),
             ));
         };
-        Ok(bytes)
+        Ok(std::mem::replace(bytes, BoundedBytes::from(vec![])))
     }
 
     fn to_plutus(self) -> PlutusData {
@@ -106,11 +113,11 @@ impl AsPlutus for bool {
 
 macro_rules! impl_number {
     () => {
-        fn from_plutus(data: PlutusData) -> Result<Self, DecodeError> {
-            let PlutusData::BigInt(value) = data else {
+        fn from_plutus(mut data: PlutusData) -> Result<Self, DecodeError> {
+            let PlutusData::BigInt(value) = &mut data else {
                 return Err(DecodeError::unexpected_type("BigInt", type_name(&data)));
             };
-            match value {
+            match std::mem::replace(value, BigInt::Int(0i64.into())) {
                 BigInt::Int(value) => {
                     let value: i128 = value.into();
                     Self::try_from(value).map_err(|_| DecodeError::out_of_range(value))
